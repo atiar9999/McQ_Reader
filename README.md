@@ -1,1 +1,1 @@
-# McQ_Reader
+https://atiar9999.github.io/McQ_Reader/
