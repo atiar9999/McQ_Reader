@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20100%20100%22%3E%0A%20%20%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2220%22%20fill%3D%22%2305070a%22/%3E%0A%20%20%3Ctext%20y%3D%2275%22%20x%3D%2215%22%20font-size%3D%2270%22%20fill%3D%22%2300f2ff%22%20font-family%3D%22monospace%22%20font-weight%3D%22bold%22%3EA%3C/text%3E%0A%20%20%3Cpath%20d%3D%22M70%2025%20L85%2040%20L45%2080%20L30%2080%20L30%2065%20Z%22%20fill%3D%22%23bc13fe%22/%3E%0A%3C/svg%3E">
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+/* ════════════════════════════════════════════
+   IMPROVEMENT: CSS reset + custom properties
+   Old code used loose resets; this is explicit
+   ════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0d0d0d;
+  --surface:   #161616;
+  --surface2:  #1e1e1e;
+  --border:    #2c2c2c;
+  --accent:    #4f8ef7;
+  --accent2:   #7ab0fa;
+  --text:      #e8e8e8;
+  --muted:     #666;
+  --danger:    #f87171;
+  --success:   #4ade80;
+  --warn:      #fbbf24;
+  --toolbar-h: 50px;
+  --font:      'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+}
+
+body {
+  font-family: var(--font);
+  font-size: 12px;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ════════════════════════════
+   TOOLBAR  — sleek monochrome
+   ════════════════════════════ */
+#toolbar {
+  height: var(--toolbar-h);
+  min-height: var(--toolbar-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  z-index: 100;
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+#toolbar::-webkit-scrollbar { display: none; }
+
+.sep {
+  width: 1px;
+  height: 22px;
+  background: var(--border);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* IMPROVEMENT: unified button style, ARIA-friendly active state */
+.tb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 11px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.tb-btn:hover    { background: var(--surface2); color: var(--text); border-color: var(--border); }
+.tb-btn:active   { transform: scale(0.97); }
+.tb-btn.active   { background: var(--accent); color: #fff; border-color: transparent; }
+.tb-btn.danger   { color: var(--danger); }
+.tb-btn.danger:hover { background: rgba(248,113,113,0.12); border-color: rgba(248,113,113,0.3); }
+.tb-btn svg      { width: 13px; height: 13px; flex-shrink: 0; pointer-events: none; }
+
+/* File upload styled as button */
+#upload-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface2);
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 11px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: border-color 0.12s, color 0.12s;
+}
+#upload-label:hover { border-color: var(--accent); color: var(--accent2); }
+#upload-label svg   { width: 13px; height: 13px; }
+#file-input         { display: none; }
+
+/* Page nav cluster */
+.page-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+#page-input {
+  width: 40px;
+  height: 28px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 11px;
+  text-align: center;
+  padding: 0 3px;
+}
+#page-input:focus { outline: none; border-color: var(--accent); }
+#page-input::-webkit-inner-spin-button { display: none; }
+
+/* Color picker — circular swatch */
+#color-picker {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  background: none;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+#color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+#color-picker::-webkit-color-swatch { border: none; border-radius: 50%; }
+
+/* Size slider */
+#size-slider {
+  -webkit-appearance: none;
+  width: 72px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+#size-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+#size-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+}
+
+.label-sm {
+  color: var(--muted);
+  font-size: 11px;
+  min-width: 30px;
+  text-align: center;
+}
+
+/* ════════════════════════════
+   VIEWER AREA
+   ════════════════════════════ */
+#viewer-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 36px 40px 80px;
+  gap: 28px;
+}
+
+/* IMPROVEMENT: scrollbar styling */
+#viewer-container::-webkit-scrollbar       { width: 7px; height: 7px; }
+#viewer-container::-webkit-scrollbar-track { background: transparent; }
+#viewer-container::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 4px; }
+
+/* Wrapper that handles zoom via CSS transform (no re-render on zoom) */
+#pages-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  transform-origin: top center;
+  transition: transform 0.15s ease;
+  /* Width set dynamically by JS */
+}
+
+/* IMPROVEMENT: Each page slot is a self-contained positioning context */
+.page-slot {
+  position: relative;
+  background: #fff;
+  box-shadow: 0 2px 32px rgba(0,0,0,0.6);
+  flex-shrink: 0;
+}
+
+.page-slot canvas { position: absolute; top: 0; left: 0; }
+.pdf-layer  { z-index: 1; display: block; transition: opacity 0.2s; }
+.draw-layer { z-index: 2; cursor: crosshair; touch-action: none; display: block; }
+
+.page-label {
+  position: absolute;
+  top: -20px;
+  left: 0;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.4px;
+  pointer-events: none;
+}
+
+/* ════════════════════════════
+   ERASER CURSOR PREVIEW
+   IMPROVEMENT: custom circle cursor
+   ════════════════════════════ */
+#eraser-cursor {
+  position: fixed;
+  border: 1.5px solid rgba(255,255,255,0.75);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  display: none;
+}
+
+/* ════════════════════════════
+   EMPTY STATE
+   ════════════════════════════ */
+#empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  color: var(--muted);
+  padding: 80px 24px;
+  text-align: center;
+  pointer-events: none;
+}
+#empty-state svg    { opacity: 0.25; }
+#empty-state h2     { font-size: 16px; font-weight: 500; color: var(--text); letter-spacing: -0.3px; }
+#empty-state p      { font-size: 11px; max-width: 320px; line-height: 1.7; }
+kbd {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-family: var(--font);
+  font-size: 10px;
+  color: var(--muted);
+}
+
+/* ════════════════════════════
+   TOAST
+   ════════════════════════════ */
+#toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-size: 11px;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 9999;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ════════════════════════════
+   LOADING OVERLAY
+   ════════════════════════════ */
+#loader {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  font-size: 13px;
+  color: var(--text);
+  flex-direction: column;
+  gap: 12px;
+}
+#loader.active { display: flex; }
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ════════════════════════════
+   RESPONSIVE — collapse text on small screens
+   ════════════════════════════ */
+@media (max-width: 680px) {
+  .tb-text { display: none; }
+  .tb-btn  { padding: 0 7px; }
+  #size-slider { width: 52px; }
+  #viewer-container { padding: 20px 0 60px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ════════ ERASER CURSOR ════════ -->
+<div id="eraser-cursor" aria-hidden="true"></div>
+
+<!-- ════════ TOAST ════════ -->
+<div id="toast" role="status" aria-live="polite"></div>
+
+<!-- ════════ LOADER ════════ -->
+<div id="loader" role="status" aria-live="polite">
+  <div class="spinner"></div>
+  <span>Rendering PDF…</span>
+</div>
+
+<!-- ════════════════════════════════════════════
+     TOOLBAR
+     IMPROVEMENT: semantic toolbar role, aria-pressed on tools
+     ════════════════════════════════════════════ -->
+<div id="toolbar" role="toolbar" aria-label="Annotation toolbar">
+
+  <!-- File -->
+  <label id="upload-label" for="file-input" title="Open PDF  (Ctrl+O)" tabindex="0">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+      <path d="M3 14V4.5L7 1h6v13H3z"/><path d="M7 1v3.5H3"/>
+    </svg>
+    <span class="tb-text">Open PDF</span>
+  </label>
+  <input type="file" id="file-input" accept="application/pdf" aria-label="Upload PDF">
+
+  <div class="sep"></div>
+
+  <!-- Page navigation -->
+  <div class="page-nav" role="group" aria-label="Page navigation">
+    <button class="tb-btn" id="btn-prev" title="Prev page  (←)" aria-label="Previous page">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 12L6 8l4-4"/></svg>
+    </button>
+    <input type="number" id="page-input" value="1" min="1" aria-label="Current page">
+    <span class="label-sm" id="page-total">/ —</span>
+    <button class="tb-btn" id="btn-next" title="Next page  (→)" aria-label="Next page">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 12l4-4-4-4"/></svg>
+    </button>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- Drawing tools -->
+  <button class="tb-btn active" id="btn-pen" title="Pen  (P)" aria-pressed="true" aria-label="Pen tool">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+      <path d="M10.5 2.5l3 3L5 14H2v-3L10.5 2.5z"/>
+    </svg>
+    <span class="tb-text">Pen</span>
+  </button>
+  <button class="tb-btn" id="btn-highlighter" title="Highlighter  (H)" aria-pressed="false" aria-label="Highlighter tool">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+      <rect x="3" y="8" width="10" height="5" rx="1"/>
+      <path d="M5 8V4l3-1 3 1v4"/>
+    </svg>
+    <span class="tb-text">HL</span>
+  </button>
+  <button class="tb-btn" id="btn-eraser" title="Eraser  (E)" aria-pressed="false" aria-label="Eraser tool">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+      <path d="M3 14h10M10 2l4 4-6 8H4L1 11 10 2z"/>
+    </svg>
+    <span class="tb-text">Erase</span>
+  </button>
+
+  <div class="sep"></div>
+
+  <!-- Color + Size -->
+  <input type="color" id="color-picker" value="#ef4444" aria-label="Stroke color" title="Stroke color">
+  <input type="range"  id="size-slider" min="1" max="60" value="4" aria-label="Stroke size" title="Stroke size">
+  <span class="label-sm" id="size-label" aria-live="polite">4px</span>
+
+  <div class="sep"></div>
+
+  <!-- IMPROVEMENT: Undo / Redo -->
+  <button class="tb-btn" id="btn-undo" title="Undo  (Ctrl+Z)" aria-label="Undo">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+      <path d="M3.5 7.5H10a3.5 3.5 0 010 7H7"/><path d="M3.5 7.5L6 5M3.5 7.5L6 10"/>
+    </svg>
+    <span class="tb-text">Undo</span>
+  </button>
+  <button class="tb-btn" id="btn-redo" title="Redo  (Ctrl+Y)" aria-label="Redo">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+      <path d="M12.5 7.5H6a3.5 3.5 0 000 7h3"/><path d="M12.5 7.5L10 5M12.5 7.5L10 10"/>
+    </svg>
+    <span class="tb-text">Redo</span>
+  </button>
+
+  <div class="sep"></div>
+
+  <!-- IMPROVEMENT: Zoom controls -->
+  <button class="tb-btn" id="btn-zoom-out" title="Zoom out  (-)" aria-label="Zoom out">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+      <circle cx="7" cy="7" r="4.5"/><path d="M12.5 12.5l-2-2M5 7h4"/>
+    </svg>
+  </button>
+  <span class="label-sm" id="zoom-label" aria-live="polite">100%</span>
+  <button class="tb-btn" id="btn-zoom-in" title="Zoom in  (+)" aria-label="Zoom in">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+      <circle cx="7" cy="7" r="4.5"/><path d="M12.5 12.5l-2-2M5 7h4M7 5v4"/>
+    </svg>
+  </button>
+
+  <div class="sep"></div>
+
+  <!-- IMPROVEMENT: Toggle PDF layer -->
+  <button class="tb-btn active" id="btn-toggle-pdf" title="Show/hide PDF layer  (V)" aria-pressed="true" aria-label="Toggle PDF layer">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+      <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/>
+    </svg>
+    <span class="tb-text">PDF</span>
+  </button>
+
+  <!-- Clear current page -->
+  <button class="tb-btn danger" id="btn-clear" title="Clear page annotations" aria-label="Clear page annotations">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+      <path d="M3 3l10 10M13 3L3 13"/>
+    </svg>
+  </button>
+
+</div><!-- /toolbar -->
+
+<!-- ════════════════════════════════════════════
+     VIEWER
+     ════════════════════════════════════════════ -->
+<div id="viewer-container" role="main" aria-label="PDF viewer">
+  <div id="empty-state" aria-label="No PDF loaded">
+    <svg width="56" height="56" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="1.2">
+      <path d="M10 50V10L20 2h26v48H10z"/><path d="M20 2v8H10"/>
+      <line x1="18" y1="24" x2="38" y2="24"/><line x1="18" y1="32" x2="38" y2="32"/>
+      <line x1="18" y1="40" x2="30" y2="40"/>
+    </svg>
+    <h2>No PDF loaded</h2>
+    <p>Click <kbd>Open PDF</kbd> or drag a file here to start annotating.
+      Shortcuts: <kbd>P</kbd> Pen · <kbd>H</kbd> Highlighter · <kbd>E</kbd> Eraser ·
+      <kbd>Ctrl Z</kbd> Undo · <kbd>+</kbd> / <kbd>-</kbd> Zoom</p>
+  </div>
+  <!-- IMPROVEMENT: dedicated wrapper so zoom transform doesn't fight flex layout -->
+  <div id="pages-wrapper" aria-label="PDF pages"></div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════
+   PDF.js
+   ════════════════════════════════════════════════════════ */
+const pdfjsLib = window['pdfjs-dist/build/pdf'];
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+/* ════════════════════════════════════════════════════════
+   STATE
+   ════════════════════════════════════════════════════════ */
+let pdfDoc       = null;
+const BASE_SCALE = 1.5;    // PDF rendering scale (pt → px)
+let zoomLevel    = 1.0;    // CSS zoom multiplier (0.5–3.0)
+let currentTool  = 'pen';
+let showPdfLayer = true;
+
+/* ════════════════════════════════════════════════════════
+   STROKE STORAGE
+   IMPROVEMENT: vector-based (not raster) → enables undo/redo
+   Strokes are stored in NORMALIZED coordinates (0–1 range
+   relative to canvas size). This makes them scale-independent,
+   so zoom works without re-computing coordinates.
+
+   strokes   = { [pageNum]: Stroke[] }
+   redoStack = { [pageNum]: Stroke[] }
+
+   Stroke = { tool, color, size, points: [{x,y}] }
+     x,y  are in [0,1] range
+     size is normalised by Math.min(canvas.w, canvas.h)
+   ════════════════════════════════════════════════════════ */
+const strokes   = {};  // committed strokes
+const redoStack = {};  // undone strokes
+
+/* ════════════════════════════════════════════════════════
+   DOM REFERENCES
+   ════════════════════════════════════════════════════════ */
+const viewer      = document.getElementById('viewer-container');
+const pagesWrap   = document.getElementById('pages-wrapper');
+const emptyState  = document.getElementById('empty-state');
+const pageInput   = document.getElementById('page-input');
+const pageTotal   = document.getElementById('page-total');
+const zoomLabel   = document.getElementById('zoom-label');
+const sizeLabel   = document.getElementById('size-label');
+const eraserCur   = document.getElementById('eraser-cursor');
+const loader      = document.getElementById('loader');
+const toast       = document.getElementById('toast');
+
+/* ════════════════════════════════════════════════════════
+   TOAST HELPER
+   ════════════════════════════════════════════════════════ */
+let _toastTimer;
+function showToast(msg, duration = 1600) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => toast.classList.remove('show'), duration);
+}
+
+/* ════════════════════════════════════════════════════════
+   1. FILE LOADING
+   ════════════════════════════════════════════════════════ */
+document.getElementById('file-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  await loadPdf(file);
+});
+
+// Drag-and-drop support
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', async e => {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (file && file.type === 'application/pdf') await loadPdf(file);
+});
+
+async function loadPdf(file) {
+  loader.classList.add('active');
+  emptyState.style.display = 'none';
+  pagesWrap.innerHTML = '';
+
+  // Clear previous state
+  Object.keys(strokes).forEach(k => delete strokes[k]);
+  Object.keys(redoStack).forEach(k => delete redoStack[k]);
+
+  try {
+    const buf = await file.arrayBuffer();
+    pdfDoc = await pdfjsLib.getDocument({ data: buf }).promise;
+    pageTotal.textContent = `/ ${pdfDoc.numPages}`;
+    pageInput.max = pdfDoc.numPages;
+    pageInput.value = 1;
+    initSlots();
+    showToast(`Loaded — ${pdfDoc.numPages} pages`);
+  } catch (err) {
+    showToast('Error loading PDF');
+    console.error(err);
+  } finally {
+    loader.classList.remove('active');
+  }
+}
+
+/* ════════════════════════════════════════════════════════
+   2. PAGE SLOT INIT + VIRTUAL SCROLL (IntersectionObserver)
+   IMPROVEMENT: observer threshold tuned; unrender saves memory
+   ════════════════════════════════════════════════════════ */
+const slotObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      renderSlot(entry.target);
+    } else {
+      unrenderSlot(entry.target);
+    }
+  });
+}, { root: viewer, rootMargin: '600px 0px' });
+
+function initSlots() {
+  pagesWrap.innerHTML = '';
+  applyZoom();  // set wrapper dimensions
+
+  for (let i = 1; i <= pdfDoc.numPages; i++) {
+    const slot = document.createElement('div');
+    slot.className   = 'page-slot';
+    slot.id          = `ps-${i}`;
+    slot.dataset.page = i;
+    // Placeholder size (A4/letter approx) so scroll height is realistic
+    slot.style.width  = Math.round(612 * BASE_SCALE) + 'px';
+    slot.style.height = Math.round(792 * BASE_SCALE) + 'px';
+
+    const label = document.createElement('div');
+    label.className   = 'page-label';
+    label.textContent = `Page ${i}`;
+    label.setAttribute('aria-hidden', 'true');
+    slot.appendChild(label);
+
+    pagesWrap.appendChild(slot);
+    slotObserver.observe(slot);
+  }
+}
+
+/* ════════════════════════════════════════════════════════
+   3. RENDER / UNRENDER
+   IMPROVEMENT: rendering flag prevents duplicate async renders
+   ════════════════════════════════════════════════════════ */
+async function renderSlot(slot) {
+  if (slot.querySelector('.pdf-layer') || slot.dataset.rendering) return;
+  slot.dataset.rendering = '1';
+
+  const pageNum = parseInt(slot.dataset.page);
+  const page    = await pdfDoc.getPage(pageNum);
+  const vp      = page.getViewport({ scale: BASE_SCALE });
+
+  slot.style.width  = vp.width  + 'px';
+  slot.style.height = vp.height + 'px';
+
+  // PDF canvas
+  const pdfC = document.createElement('canvas');
+  pdfC.className = 'pdf-layer';
+  pdfC.width = vp.width;  pdfC.height = vp.height;
+  pdfC.setAttribute('aria-hidden', 'true');
+  pdfC.style.opacity = showPdfLayer ? '1' : '0';
+
+  // Draw canvas (annotations)
+  const drwC = document.createElement('canvas');
+  drwC.className = 'draw-layer';
+  drwC.width = vp.width;  drwC.height = vp.height;
+  drwC.setAttribute('role', 'img');
+  drwC.setAttribute('aria-label', `Annotation layer for page ${pageNum}`);
+  if (currentTool === 'eraser') drwC.style.cursor = 'none';
+
+  slot.appendChild(pdfC);
+  slot.appendChild(drwC);
+  delete slot.dataset.rendering;
+
+  // Render PDF content asynchronously
+  const pdfCtx = pdfC.getContext('2d');
+  await page.render({ canvasContext: pdfCtx, viewport: vp }).promise;
+
+  // Replay stored annotations
+  redrawPage(pageNum, drwC);
+
+  // Attach pointer-event drawing
+  attachDrawing(drwC, pageNum);
+}
+
+function unrenderSlot(slot) {
+  // IMPROVEMENT: no raster save needed — strokes live in memory as vectors
+  const canvases = slot.querySelectorAll('canvas');
+  if (!canvases.length) return;
+  canvases.forEach(c => c.remove());
+}
+
+/* ════════════════════════════════════════════════════════
+   4. STROKE DRAWING ENGINE
+   IMPROVEMENT: quadratic-bezier midpoint smoothing
+   All strokes drawn through one canonical drawStroke() fn.
+   ════════════════════════════════════════════════════════ */
+
+/** Re-renders all stored strokes onto a draw canvas. */
+function redrawPage(pageNum, canvas) {
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const list = strokes[pageNum];
+  if (!list) return;
+  list.forEach(s => drawStroke(ctx, s, canvas.width, canvas.height));
+}
+
+/**
+ * Draws a single stroke using quadratic bezier midpoint smoothing.
+ * Normalised coordinates (0–1) are mapped back to canvas pixels here.
+ */
+function drawStroke(ctx, stroke, w, h) {
+  const pts = stroke.points;
+  if (!pts || !pts.length) return;
+
+  // Denormalise helper
+  const cx = n => n.x * w;
+  const cy = n => n.y * h;
+
+  ctx.save();
+  ctx.lineCap  = 'round';
+  ctx.lineJoin = 'round';
+
+  if (stroke.tool === 'eraser') {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.strokeStyle = 'rgba(0,0,0,1)';
+    ctx.fillStyle   = 'rgba(0,0,0,1)';
+    // IMPROVEMENT: eraser size also stored normalised
+    ctx.lineWidth   = stroke.size * Math.min(w, h);
+  } else {
+    ctx.globalCompositeOperation = 'source-over';
+    const alpha = stroke.tool === 'highlighter' ? 0.38 : 1;
+    ctx.strokeStyle = hexAlpha(stroke.color, alpha);
+    ctx.fillStyle   = hexAlpha(stroke.color, alpha);
+    ctx.lineWidth   = stroke.size * Math.min(w, h);
+  }
+
+  // Single-point dot
+  if (pts.length === 1) {
+    ctx.beginPath();
+    ctx.arc(cx(pts[0]), cy(pts[0]), ctx.lineWidth / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+
+  // Two-point line
+  if (pts.length === 2) {
+    ctx.beginPath();
+    ctx.moveTo(cx(pts[0]), cy(pts[0]));
+    ctx.lineTo(cx(pts[1]), cy(pts[1]));
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  /* IMPROVEMENT: Quadratic bezier via midpoints.
+     Each bezier goes from mid(i-1,i) through pts[i] to mid(i,i+1).
+     This creates C1-continuous curves — no visible kinks at sample points.
+     Drawing: move to start → line to first mid → loop of beziers → line to end. */
+  ctx.beginPath();
+  ctx.moveTo(cx(pts[0]), cy(pts[0]));
+
+  const mid0x = (cx(pts[0]) + cx(pts[1])) / 2;
+  const mid0y = (cy(pts[0]) + cy(pts[1])) / 2;
+  ctx.lineTo(mid0x, mid0y);
+
+  for (let i = 1; i < pts.length - 1; i++) {
+    const midX = (cx(pts[i]) + cx(pts[i + 1])) / 2;
+    const midY = (cy(pts[i]) + cy(pts[i + 1])) / 2;
+    ctx.quadraticCurveTo(cx(pts[i]), cy(pts[i]), midX, midY);
+  }
+
+  ctx.lineTo(cx(pts[pts.length - 1]), cy(pts[pts.length - 1]));
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* ════════════════════════════════════════════════════════
+   5. LIVE DRAWING (Pointer Events API)
+   IMPROVEMENT: uses Pointer Events instead of mouse+touch,
+   handles pen pressure devices, no global event leaks.
+   ════════════════════════════════════════════════════════ */
+function attachDrawing(canvas, pageNum) {
+  const ctx = canvas.getContext('2d');
+  let drawing      = false;
+  let liveStroke   = null;
+  let lastMidX = 0, lastMidY = 0;
+
+  /* Normalise canvas coords → [0,1] range.
+     getBoundingClientRect() already accounts for CSS zoom transform. */
+  function norm(e) {
+    const r = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - r.left) / r.width,
+      y: (e.clientY - r.top)  / r.height
+    };
+  }
+  function toC(n) { return { x: n.x * canvas.width, y: n.y * canvas.height }; }
+
+  function applyCtx(stroke) {
+    ctx.lineCap  = 'round';
+    ctx.lineJoin = 'round';
+    if (stroke.tool === 'eraser') {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.strokeStyle = 'rgba(0,0,0,1)';
+      ctx.lineWidth   = stroke.size * Math.min(canvas.width, canvas.height);
+    } else {
+      ctx.globalCompositeOperation = 'source-over';
+      const alpha = stroke.tool === 'highlighter' ? 0.38 : 1;
+      ctx.strokeStyle = hexAlpha(stroke.color, alpha);
+      ctx.lineWidth   = stroke.size * Math.min(canvas.width, canvas.height);
+    }
+  }
+
+  canvas.addEventListener('pointerdown', e => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    e.preventDefault();
+    canvas.setPointerCapture(e.pointerId);
+    drawing = true;
+
+    const n   = norm(e);
+    const dim = Math.min(canvas.width, canvas.height);
+
+    liveStroke = {
+      tool:  currentTool,
+      color: document.getElementById('color-picker').value,
+      // IMPROVEMENT: store size normalised so it's scale-independent
+      size:  parseInt(document.getElementById('size-slider').value) / dim,
+      points: [n]
+    };
+
+    applyCtx(liveStroke);
+    const p = toC(n);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    lastMidX = p.x;
+    lastMidY = p.y;
+  });
+
+  canvas.addEventListener('pointermove', e => {
+    if (!drawing || !liveStroke) return;
+    e.preventDefault();
+
+    const n = norm(e);
+    liveStroke.points.push(n);
+    const pts = liveStroke.points;
+    const len = pts.length;
+
+    applyCtx(liveStroke);
+
+    if (len === 2) {
+      /* First segment: straight line to midpoint */
+      const p0 = toC(pts[0]);
+      const p1 = toC(pts[1]);
+      const midX = (p0.x + p1.x) / 2;
+      const midY = (p0.y + p1.y) / 2;
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(midX, midY);
+      ctx.stroke();
+      lastMidX = midX; lastMidY = midY;
+    } else if (len >= 3) {
+      /* Subsequent segments: bezier from lastMid through prev to newMid */
+      const prev   = toC(pts[len - 2]);
+      const curr   = toC(pts[len - 1]);
+      const newMidX = (prev.x + curr.x) / 2;
+      const newMidY = (prev.y + curr.y) / 2;
+      ctx.beginPath();
+      ctx.moveTo(lastMidX, lastMidY);
+      ctx.quadraticCurveTo(prev.x, prev.y, newMidX, newMidY);
+      ctx.stroke();
+      lastMidX = newMidX; lastMidY = newMidY;
+    }
+  });
+
+  function stopDrawing() {
+    if (!drawing || !liveStroke) return;
+    drawing = false;
+
+    const pts = liveStroke.points;
+    if (pts.length > 1) {
+      // Close last segment to final point
+      applyCtx(liveStroke);
+      const last = toC(pts[pts.length - 1]);
+      ctx.beginPath();
+      ctx.moveTo(lastMidX, lastMidY);
+      ctx.lineTo(last.x, last.y);
+      ctx.stroke();
+    } else if (pts.length === 1) {
+      // Dot
+      applyCtx(liveStroke);
+      const p = toC(pts[0]);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, ctx.lineWidth / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // IMPROVEMENT: commit to store + clear redo on new stroke
+    if (!strokes[pageNum]) strokes[pageNum] = [];
+    strokes[pageNum].push(liveStroke);
+    redoStack[pageNum] = [];  // invalidate redo on new action
+    liveStroke = null;
+  }
+
+  canvas.addEventListener('pointerup',     stopDrawing);
+  canvas.addEventListener('pointercancel', stopDrawing);
+  canvas.addEventListener('pointerleave',  stopDrawing);
+}
+
+/* ════════════════════════════════════════════════════════
+   6. UNDO / REDO
+   IMPROVEMENT: per-page undo stacks, keyboard support
+   ════════════════════════════════════════════════════════ */
+function getActivePage() {
+  /* Find the page most visible in the viewport */
+  const vr = viewer.getBoundingClientRect();
+  let best = 1, bestR = -Infinity;
+  document.querySelectorAll('.page-slot').forEach(slot => {
+    const r   = slot.getBoundingClientRect();
+    const top = Math.max(r.top, vr.top);
+    const bot = Math.min(r.bottom, vr.bottom);
+    const overlap = bot - top;
+    if (overlap > bestR) { bestR = overlap; best = parseInt(slot.dataset.page); }
+  });
+  return best;
+}
+
+function undo() {
+  const pg = getActivePage();
+  if (!strokes[pg] || !strokes[pg].length) { showToast('Nothing to undo'); return; }
+  if (!redoStack[pg]) redoStack[pg] = [];
+  redoStack[pg].push(strokes[pg].pop());
+  const c = document.querySelector(`#ps-${pg} .draw-layer`);
+  if (c) redrawPage(pg, c);
+  showToast('Undo');
+}
+
+function redo() {
+  const pg = getActivePage();
+  if (!redoStack[pg] || !redoStack[pg].length) { showToast('Nothing to redo'); return; }
+  if (!strokes[pg]) strokes[pg] = [];
+  strokes[pg].push(redoStack[pg].pop());
+  const c = document.querySelector(`#ps-${pg} .draw-layer`);
+  if (c) redrawPage(pg, c);
+  showToast('Redo');
+}
+
+/* ════════════════════════════════════════════════════════
+   7. ZOOM
+   IMPROVEMENT: CSS transform-based zoom (no re-render).
+   Coordinates are normalised so they stay correct at any zoom.
+   applyZoom() updates the wrapper transform + compensates height.
+   ════════════════════════════════════════════════════════ */
+const ZOOM_STEPS = [0.5, 0.67, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
+
+function applyZoom() {
+  zoomLabel.textContent = Math.round(zoomLevel * 100) + '%';
+  pagesWrap.style.transform = `scale(${zoomLevel})`;
+  pagesWrap.style.transformOrigin = 'top center';
+
+  /* CSS transform doesn't affect layout flow.
+     We compensate by adding bottom margin so the scroll area reflects
+     the true scaled height. Formula: extra = naturalH * (zoom - 1) */
+  const naturalH = pagesWrap.scrollHeight || 0;
+  pagesWrap.style.marginBottom = (naturalH * (zoomLevel - 1)) + 'px';
+}
+
+function zoomIn() {
+  const next = ZOOM_STEPS.find(s => s > zoomLevel + 0.01);
+  zoomLevel = next || 3.0;
+  applyZoom();
+}
+function zoomOut() {
+  const prev = [...ZOOM_STEPS].reverse().find(s => s < zoomLevel - 0.01);
+  zoomLevel = prev || 0.5;
+  applyZoom();
+}
+
+/* ════════════════════════════════════════════════════════
+   8. TOOL SWITCHING
+   ════════════════════════════════════════════════════════ */
+const TOOLS = { 'btn-pen': 'pen', 'btn-highlighter': 'highlighter', 'btn-eraser': 'eraser' };
+
+Object.entries(TOOLS).forEach(([id, tool]) => {
+  document.getElementById(id).addEventListener('click', () => {
+    currentTool = tool;
+    Object.entries(TOOLS).forEach(([bid, _]) => {
+      const btn = document.getElementById(bid);
+      const active = bid === id;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    /* Update cursor on all rendered draw layers */
+    document.querySelectorAll('.draw-layer').forEach(c => {
+      c.style.cursor = tool === 'eraser' ? 'none' : 'crosshair';
+    });
+    eraserCur.style.display = 'none';
+  });
+});
+
+/* ════════════════════════════════════════════════════════
+   9. ERASER CURSOR PREVIEW
+   IMPROVEMENT: custom circle follows mouse when eraser active
+   ════════════════════════════════════════════════════════ */
+document.addEventListener('mousemove', e => {
+  if (currentTool !== 'eraser') { eraserCur.style.display = 'none'; return; }
+  const size = parseInt(document.getElementById('size-slider').value);
+  eraserCur.style.cssText = `
+    position:fixed; display:block;
+    width:${size}px; height:${size}px;
+    border:1.5px solid rgba(255,255,255,0.8);
+    border-radius:50%; pointer-events:none; z-index:9999;
+    left:${e.clientX - size / 2}px; top:${e.clientY - size / 2}px;
+  `;
+});
+document.addEventListener('mouseleave', () => { eraserCur.style.display = 'none'; });
+
+/* ════════════════════════════════════════════════════════
+   10. PAGE NAVIGATION
+   IMPROVEMENT: smooth scrollIntoView + scroll-tracking
+   ════════════════════════════════════════════════════════ */
+function goToPage(n) {
+  if (!pdfDoc) return;
+  const pg   = Math.max(1, Math.min(pdfDoc.numPages, parseInt(n) || 1));
+  const slot = document.getElementById(`ps-${pg}`);
+  if (slot) slot.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  pageInput.value = pg;
+}
+
+pageInput.addEventListener('keydown', e => { if (e.key === 'Enter') goToPage(pageInput.value); });
+document.getElementById('btn-prev').addEventListener('click', () => goToPage(+pageInput.value - 1));
+document.getElementById('btn-next').addEventListener('click', () => goToPage(+pageInput.value + 1));
+
+/* Update page counter while scrolling */
+let _scrollRaf;
+viewer.addEventListener('scroll', () => {
+  cancelAnimationFrame(_scrollRaf);
+  _scrollRaf = requestAnimationFrame(() => {
+    if (!pdfDoc) return;
+    const vr = viewer.getBoundingClientRect();
+    const midY = vr.top + vr.height / 2;
+    let pg = 1;
+    document.querySelectorAll('.page-slot').forEach(slot => {
+      if (slot.getBoundingClientRect().top <= midY) pg = parseInt(slot.dataset.page);
+    });
+    pageInput.value = pg;
+  });
+});
+
+/* ════════════════════════════════════════════════════════
+   11. PDF LAYER TOGGLE
+   IMPROVEMENT: smooth opacity transition via CSS
+   ════════════════════════════════════════════════════════ */
+document.getElementById('btn-toggle-pdf').addEventListener('click', e => {
+  showPdfLayer = !showPdfLayer;
+  e.currentTarget.classList.toggle('active', showPdfLayer);
+  e.currentTarget.setAttribute('aria-pressed', showPdfLayer ? 'true' : 'false');
+  document.querySelectorAll('.pdf-layer').forEach(c => {
+    c.style.opacity = showPdfLayer ? '1' : '0';
+  });
+  showToast(showPdfLayer ? 'PDF layer visible' : 'PDF layer hidden');
+});
+
+/* ════════════════════════════════════════════════════════
+   12. CLEAR PAGE ANNOTATIONS
+   ════════════════════════════════════════════════════════ */
+document.getElementById('btn-clear').addEventListener('click', () => {
+  if (!pdfDoc) return;
+  const pg = getActivePage();
+  if (!strokes[pg] || !strokes[pg].length) { showToast('Nothing to clear'); return; }
+  if (!confirm(`Clear all annotations on page ${pg}?`)) return;
+  // Push all strokes to redo so clear is undoable (one redo = one stroke back)
+  if (!redoStack[pg]) redoStack[pg] = [];
+  redoStack[pg].push(...strokes[pg]);
+  strokes[pg] = [];
+  const c = document.querySelector(`#ps-${pg} .draw-layer`);
+  if (c) { const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height); }
+  showToast(`Page ${pg} cleared`);
+});
+
+/* ════════════════════════════════════════════════════════
+   13. SIZE SLIDER
+   ════════════════════════════════════════════════════════ */
+document.getElementById('size-slider').addEventListener('input', e => {
+  sizeLabel.textContent = e.target.value + 'px';
+});
+
+/* ════════════════════════════════════════════════════════
+   14. UNDO / REDO BUTTONS
+   ════════════════════════════════════════════════════════ */
+document.getElementById('btn-undo').addEventListener('click', undo);
+document.getElementById('btn-redo').addEventListener('click', redo);
+
+/* ════════════════════════════════════════════════════════
+   15. ZOOM BUTTONS
+   ════════════════════════════════════════════════════════ */
+document.getElementById('btn-zoom-in').addEventListener('click', zoomIn);
+document.getElementById('btn-zoom-out').addEventListener('click', zoomOut);
+
+/* ════════════════════════════════════════════════════════
+   16. KEYBOARD SHORTCUTS
+   IMPROVEMENT: comprehensive shortcut set, skips input fields
+   ════════════════════════════════════════════════════════ */
+document.addEventListener('keydown', e => {
+  const tag  = document.activeElement.tagName;
+  const inInput = (tag === 'INPUT' || tag === 'TEXTAREA');
+  const ctrl = e.ctrlKey || e.metaKey;
+
+  if (ctrl) {
+    if (e.key === 'z') { e.preventDefault(); undo(); return; }
+    if (e.key === 'y' || (e.shiftKey && e.key === 'Z')) { e.preventDefault(); redo(); return; }
+    if (e.key === '=' || e.key === '+') { e.preventDefault(); zoomIn(); return; }
+    if (e.key === '-') { e.preventDefault(); zoomOut(); return; }
+    return;
+  }
+
+  if (inInput) return;
+
+  switch (e.key) {
+    case 'p': case 'P': document.getElementById('btn-pen').click(); break;
+    case 'h': case 'H': document.getElementById('btn-highlighter').click(); break;
+    case 'e': case 'E': document.getElementById('btn-eraser').click(); break;
+    case 'v': case 'V': document.getElementById('btn-toggle-pdf').click(); break;
+    case '+': case '=': zoomIn(); break;
+    case '-':           zoomOut(); break;
+    case 'ArrowLeft':
+    case 'ArrowUp':     e.preventDefault(); goToPage(+pageInput.value - 1); break;
+    case 'ArrowRight':
+    case 'ArrowDown':   e.preventDefault(); goToPage(+pageInput.value + 1); break;
+  }
+});
+
+/* Ctrl + scroll = zoom */
+viewer.addEventListener('wheel', e => {
+  if (!e.ctrlKey) return;
+  e.preventDefault();
+  e.deltaY < 0 ? zoomIn() : zoomOut();
+}, { passive: false });
+
+/* ════════════════════════════════════════════════════════
+   UTILITY — hex + alpha → rgba string
+   ════════════════════════════════════════════════════════ */
+function hexAlpha(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+</script>
+</body>
+</html>
